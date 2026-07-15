@@ -6,13 +6,13 @@ from ultralytics import YOLO
 model = YOLO("best260408.pt")
 
 # パラメータ
-CONF = 0.55          # 信頼度
 MOVE_THRESH = 4      # 移動と判定する距離[pixel]
 MOVING_THRESH = 3    # TEAM MOVINGとなる人数
 STOP_FRAMES = 30     # TEAM STATIONARY継続フレーム数
 
 
-def detect_snap(video_path):
+def detect_snap(video_path, conf):
+
     cap = cv2.VideoCapture(video_path)
 
     prev_centers = {}
@@ -20,6 +20,7 @@ def detect_snap(video_path):
     prev_team_state = None
 
     while True:
+
         ret, frame = cap.read()
 
         if not ret:
@@ -32,7 +33,7 @@ def detect_snap(video_path):
         results = model.track(
             frame,
             persist=True,
-            conf=CONF,
+            conf=conf,
             verbose=False
         )
 
@@ -58,6 +59,7 @@ def detect_snap(video_path):
                 move_dist = 0
 
                 if track_id in prev_centers:
+
                     px, py = prev_centers[track_id]
 
                     move_dist = math.sqrt(
@@ -79,10 +81,15 @@ def detect_snap(video_path):
 
         # STATIONARY継続時間を数える
         if team_state == "TEAM STATIONARY":
+
             stationary_frames += 1
+
         else:
-            # STATIONARYが一定時間以上続いた後にMOVINGになった瞬間
-            if prev_team_state == "TEAM STATIONARY" and stationary_frames >= STOP_FRAMES:
+
+            if (
+                prev_team_state == "TEAM STATIONARY"
+                and stationary_frames >= STOP_FRAMES
+            ):
                 cap.release()
                 return frame_number
 
@@ -92,16 +99,18 @@ def detect_snap(video_path):
 
     cap.release()
 
-    # 見つからなかった場合
     return -1
 
 
-# 2本の動画でスナップフレームを取得
-frame1 = detect_snap("ex5-26.mp4")
-frame2 = detect_snap("ex9-26.mp4")
+# 動画ごとに別々の信頼度を設定
+CONF_EX5 = 0.55
+CONF_EX9 = 0.80
 
-print("ex5-26.mp4 :", frame1)
-print("ex9-26.mp4 :", frame2)
+frame1 = detect_snap("ex5-26.mp4", CONF_EX5)
+frame2 = detect_snap("ex9-26.mp4", CONF_EX9)
+
+print("ex5-26.mp4 :", frame1, "(conf =", CONF_EX5, ")")
+print("ex9-26.mp4 :", frame2, "(conf =", CONF_EX9, ")")
 
 if frame1 != -1 and frame2 != -1:
     print("Difference :", abs(frame1 - frame2))
